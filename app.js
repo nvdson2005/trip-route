@@ -317,27 +317,65 @@ $('#findBtn').addEventListener('click', async () => {
 
 /* ---------- routing ---------- */
 
+// Valhalla returns route lines as "polyline6" encoded strings.
+function decodePolyline6(str) {
+  const coords = [];
+  let i = 0, lat = 0, lng = 0;
+  while (i < str.length) {
+    for (const axis of [0, 1]) {
+      let b, shift = 0, result = 0;
+      do { b = str.charCodeAt(i++) - 63; result |= (b & 0x1f) << shift; shift += 5; } while (b >= 0x20);
+      const d = result & 1 ? ~(result >> 1) : result >> 1;
+      if (axis === 0) lat += d; else lng += d;
+    }
+    coords.push([lng / 1e6, lat / 1e6]);
+  }
+  return coords;
+}
+
+async function routeOSRM(pts) {
+  const path = pts.map((p) => `${p.lng.toFixed(5)},${p.lat.toFixed(5)}`).join(';');
+  const r = await fetch(`https://router.project-osrm.org/route/v1/driving/${path}?overview=full&geometries=geojson`);
+  const j = await r.json();
+  if (j.code !== 'Ok') throw new Error('OSRM: ' + j.code);
+  const rt = j.routes[0];
+  return { coords: rt.geometry.coordinates, distance: rt.distance, duration: rt.duration, legDist: rt.legs.map((l) => l.distance) };
+}
+
+// Valhalla (FOSSGIS public server). "motorcycle" avoids expressways, which
+// motorbikes may not use in Vietnam.
+async function routeValhalla(pts, costing) {
+  const body = { locations: pts.map((p) => ({ lat: p.lat, lon: p.lng })), costing, units: 'kilometers' };
+  const r = await fetch('https://valhalla1.openstreetmap.de/route?json=' + encodeURIComponent(JSON.stringify(body)));
+  const j = await r.json();
+  if (!j.trip) throw new Error('Valhalla: ' + (j.error || r.status));
+  const coords = [];
+  j.trip.legs.forEach((l, i) => { const c = decodePolyline6(l.shape); coords.push(...(i ? c.slice(1) : c)); });
+  return {
+    coords, distance: j.trip.summary.length * 1000, duration: j.trip.summary.time,
+    legDist: j.trip.legs.map((l) => l.summary.length * 1000),
+  };
+}
+
+const MODE_LABEL = { motorbike: 'by motorbike', car: 'by car' };
+
 let routeToken = 0;
 async function computeRoute() {
   const token = ++routeToken;
   const pts = state.stops.filter((s) => s.lng != null);
   if (pts.length < 2) { state.route = null; return; }
-  const wantRoad = $('#mode').value === 'road';
+  const mode = $('#mode').value;
   let coords = null, distance = null, duration = null, legDist = null, note = '';
-  if (wantRoad) {
+  if (mode !== 'straight') {
     $('#routeInfo').textContent = 'Finding roads…';
-    try {
-      const path = pts.map((p) => `${p.lng.toFixed(5)},${p.lat.toFixed(5)}`).join(';');
-      const r = await fetch(`https://router.project-osrm.org/route/v1/driving/${path}?overview=full&geometries=geojson`);
-      const j = await r.json();
-      if (j.code !== 'Ok') throw new Error(j.code);
-      const rt = j.routes[0];
-      coords = rt.geometry.coordinates; distance = rt.distance; duration = rt.duration;
-      legDist = rt.legs.map((l) => l.distance);
-    } catch (e) {
-      console.warn('OSRM failed', e);
-      note = 'Road routing failed (no road or service busy), so straight lines are shown.';
+    const attempts = mode === 'car'
+      ? [() => routeOSRM(pts), () => routeValhalla(pts, 'auto')]
+      : [() => routeValhalla(pts, 'motorcycle'), () => routeValhalla(pts, 'motor_scooter')];
+    for (const attempt of attempts) {
+      try { ({ coords, distance, duration, legDist } = await attempt()); break; }
+      catch (e) { console.warn('Routing failed', e); }
     }
+    if (!coords) note = 'Road routing failed (no road or service busy), so straight lines are shown.';
   }
   if (token !== routeToken) return; // a newer request superseded this one
   if (!coords) {
@@ -363,7 +401,7 @@ async function computeRoute() {
     distance: distance ?? legSum, duration, straight: !distance, bounds: boundsOf(coords),
   };
   const km = Math.round(state.route.distance / 1000);
-  const time = duration ? ` · about ${Math.floor(duration / 3600)}h ${Math.round((duration % 3600) / 60)}m driving` : ' (straight-line distance)';
+  const time = duration ? ` · about ${Math.floor(duration / 3600)}h ${Math.round((duration % 3600) / 60)}m ${MODE_LABEL[mode]}` : ' (straight-line distance)';
   $('#routeInfo').textContent = `${km.toLocaleString()} km${time}. ${note}`;
 }
 
@@ -661,7 +699,7 @@ function writeUrl() {
   const pts = state.stops.filter((s) => s.lng != null);
   const p = new URLSearchParams();
   if (pts.length) p.set('r', pts.map((s) => `${s.query.replace(/[~|]/g, ' ')}~${s.lat.toFixed(5)}~${s.lng.toFixed(5)}`).join('|'));
-  if ($('#mode').value !== 'road') p.set('m', $('#mode').value);
+  if ($('#mode').value !== 'motorbike') p.set('m', $('#mode').value);
   if ($('#aspect').value !== '16:9') p.set('a', $('#aspect').value);
   if ($('#title').value.trim()) p.set('t', $('#title').value.trim());
   const qs = p.toString();
@@ -670,7 +708,8 @@ function writeUrl() {
 
 function loadFromUrl() {
   const p = new URLSearchParams(location.search);
-  if (p.get('m')) $('#mode').value = p.get('m');
+  const m = p.get('m') === 'road' ? 'car' : p.get('m'); // "road" = old links (car routing)
+  if (['motorbike', 'car', 'straight'].includes(m)) $('#mode').value = m;
   if (p.get('a')) { $('#aspect').value = p.get('a'); layoutFrame(); }
   if (p.get('t')) $('#title').value = p.get('t');
   const r = p.get('r');

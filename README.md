@@ -7,7 +7,7 @@ Paste a text route like `HCMC - Vung Tau - Phan Thiet - Bao Loc`, see it drawn o
 - Paste a route: splits on `-`, `→`, `->`, `>`, commas or new lines.
 - Place lookup in Vietnam (or worldwide), with shortcuts for common names (HCMC, SG, HN, Dalat, …).
 - Pick a different match from the dropdown, drag dots on the map, or click the map to add a stop.
-- Road routing (OSRM), with a straight-line fallback.
+- Motorbike routing (no expressways) or car routing, with a straight-line fallback.
 - Animated preview: the line draws itself, the camera follows, stops appear as they are reached.
 - Video recording in 16:9, 9:16 or 1:1, at 720p or 1080p (MP4 in Chrome and Safari, WebM in Firefox).
 - Share link: the route is stored in the page URL.
@@ -33,7 +33,8 @@ No build step and no API keys.
 |---|---|---|
 | Map tiles | [OpenFreeMap](https://openfreemap.org) | Free, no key |
 | Place lookup | [Nominatim](https://nominatim.org) → [Photon](https://photon.komoot.io) fallback | Nominatim: max 1 request/second; results are cached in the browser |
-| Routing | [OSRM demo server](https://project-osrm.org) | Fair use, no uptime guarantee |
+| Motorbike routing (default) | [Valhalla on FOSSGIS](https://valhalla1.openstreetmap.de), `motorcycle` profile: avoids expressways, which motorbikes may not use in Vietnam | Fair use, no uptime guarantee |
+| Car routing | [OSRM demo server](https://project-osrm.org), Valhalla `auto` as fallback | Fair use, no uptime guarantee |
 
 These free services suit personal use. For heavy public traffic, switch to keyed providers (MapTiler, OpenRouteService).
 
