@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Trip Route Mapper</title>
+  <meta name="description" content="Paste a text route like “HCMC - Vung Tau - Phan Thiet”, see it on a map, and record an animated video.">
+  <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <aside id="panel">
+    <header>
+      <h1>Trip Route Mapper</h1>
+      <p class="sub">Paste a route, fix the stops, record a video.</p>
+    </header>
+
+    <section>
+      <label for="routeText">Route text</label>
+      <textarea id="routeText" rows="3" placeholder="HCMC - Vung Tau - Phan Thiet - Bao Loc"></textarea>
+      <div class="row">
+        <select id="country" aria-label="Search area">
+          <option value="vn" selected>Search in Vietnam</option>
+          <option value="">Search worldwide</option>
+        </select>
+        <button id="findBtn" class="primary">Find places</button>
+      </div>
+    </section>
+
+    <section>
+      <div class="section-head">
+        <h2>Stops <span id="stopCount" class="muted"></span></h2>
+        <label class="check"><input type="checkbox" id="clickAdd" checked> Click map to add</label>
+      </div>
+      <ol id="stops"></ol>
+      <p id="stopsEmpty" class="muted small">No stops yet. Paste a route above or click on the map. Drag dots on the map to adjust.</p>
+    </section>
+
+    <section>
+      <h2>Route</h2>
+      <div class="row">
+        <select id="mode" aria-label="Route mode">
+          <option value="road" selected>Follow roads</option>
+          <option value="straight">Straight lines</option>
+        </select>
+        <button id="shareBtn" title="Copy a link that reopens this route">Copy link</button>
+      </div>
+      <p id="routeInfo" class="small"></p>
+    </section>
+
+    <section>
+      <h2>Video</h2>
+      <div class="grid2">
+        <label>Format
+          <select id="aspect">
+            <option value="16:9" selected>16:9 landscape</option>
+            <option value="9:16">9:16 story</option>
+            <option value="1:1">1:1 square</option>
+          </select>
+        </label>
+        <label>Quality
+          <select id="quality">
+            <option value="720" selected>720p</option>
+            <option value="1080">1080p</option>
+          </select>
+        </label>
+        <label>Camera
+          <select id="camera">
+            <option value="follow" selected>Follow the route</option>
+            <option value="overview">Whole map</option>
+          </select>
+        </label>
+        <label>Length <span id="durLabel">12s</span>
+          <input type="range" id="duration" min="5" max="40" value="12">
+        </label>
+      </div>
+      <label>Title on video
+        <input type="text" id="title" placeholder="Auto: stop names">
+      </label>
+      <div class="row">
+        <button id="playBtn">▶ Preview</button>
+        <button id="recBtn" class="primary">● Record video</button>
+        <button id="stopBtn" hidden>■ Stop</button>
+      </div>
+      <p id="status" class="small" role="status"></p>
+    </section>
+
+    <footer class="small muted">
+      Map © <a href="https://openfreemap.org" target="_blank" rel="noopener">OpenFreeMap</a>,
+      data © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a>.
+      Routing: OSRM. Search: Nominatim / Photon.
+    </footer>
+  </aside>
+
+  <main id="stage">
+    <div id="frame">
+      <div id="map"></div>
+      <canvas id="overlay"></canvas>
+    </div>
+  </main>
+
+  <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
